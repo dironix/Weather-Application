@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #3b82f6, #a855f7);
+            min-height: 100vh;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+        }
+        .weather-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            max-width: 500px;
+            width: 100%;
+        }
+        .weather-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+        }
+        .weather-icon {
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+        }
+        input {
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: black;
+            outline: none;
+            border-radius: 8px;
+            transition: border-color 0.3s ease;
+        }
+        input:focus {
+            border-color: #ffffff;
+        }
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        button {
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        .error {
+            color: #f87171;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        .loading {
+            color: #ffffff;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .loading span {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="weather-card mx-4">
+        <h1 class="text-4xl font-bold text-center mb-4">Weather Now</h1>
+        <p class="text-center text-gray-200 mb-6">Enter a city or use your location to see the weather</p>
+        
+        <div class="flex gap-2 mb-6">
+            <input type="text" id="city" placeholder="Enter city (e.g., London)" class="flex-1 p-3">
+            <button onclick="getWeatherByCity()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-lg">Search</button>
+        </div>
+        
+        <button onclick="getWeatherByLocation()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-3 rounded-lg mb-6">Use My Location</button>
+        
+        <div id="weather" class="text-center"></div>
+        <div id="error" class="error"></div>
+        <div id="loading" class="loading hidden"><span>Loading...</span></div>
+    </div>
+
+    <script>
+        // Replace with your own API key from https://openweathermap.org/api
+        const apiKey = '64c26dff40cbc4bf64fa826ac880311c';
+
+        function showLoading() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('weather').innerHTML = '';
+            document.getElementById('error').innerHTML = '';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('error').innerHTML = message;
+        }
+
+        function getWeatherByCity() {
+            const city = document.getElementById('city').value.trim();
+            if (!city) {
+                showError('Please enter a city name.');
+                return;
+            }
+            showLoading();
+            fetchWeather(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}`);
+        }
+
+        function getWeatherByLocation() {
+            if (navigator.geolocation) {
+                showLoading();
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        fetchWeather(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`);
+                    },
+                    error => {
+                        hideLoading();
+                        showError('Unable to retrieve your location: ' + error.message);
+                    },
+                    { timeout: 10000, enableHighAccuracy: true }
+                );
+            } else {
+                showError('Geolocation is not supported by this browser.');
+            }
+        }
+
+        async function fetchWeather(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(response.status === 404 ? 'City not found.' : 'API error occurred.');
+                }
+                const data = await response.json();
+                hideLoading();
+                displayWeather(data);
+            } catch (error) {
+                hideLoading();
+                showError(error.message);
+                console.error(error);
+            }
+        }
+
+        function displayWeather(data) {
+            const weatherDiv = document.getElementById('weather');
+            const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+            const sunrise = new Date(data.sys.sunrise * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const sunset = new Date(data.sys.sunset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            weatherDiv.innerHTML = `
+                <h2 class="text-2xl font-semibold mb-2">${data.name}, ${data.sys.country}</h2>
+                <img src="${iconUrl}" alt="${data.weather[0].description}" class="weather-icon mx-auto w-28 h-28">
+                <p class="text-lg capitalize mb-2">${data.weather[0].description}</p>
+                <p class="text-5xl font-bold my-2">${Math.round(data.main.temp)}°C</p>
+                <p class="text-sm mb-4">Feels like: ${Math.round(data.main.feels_like)}°C</p>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <p><strong>Humidity:</strong> ${data.main.humidity}%</p>
+                    <p><strong>Wind:</strong> ${data.wind.speed} m/s</p>
+                    <p><strong>Pressure:</strong> ${data.main.pressure} hPa</p>
+                    <p><strong>Visibility:</strong> ${(data.visibility / 1000).toFixed(1)} km</p>
+                    <p><strong>Sunrise:</strong> ${sunrise}</p>
+                    <p><strong>Sunset:</strong> ${sunset}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
